@@ -1,0 +1,346 @@
+---
+title: "6313Project"
+author: "YaoLi"
+output:
+  html_document: default
+  pdf_document: default
+NetID: yxl180042
+---
+```{r}
+
+```
+
+
+#Primary Token Selection.
+In this project, each group will work with three tokens¡¯ data. These will be your primary tokens. To this end, sum the group members¡¯ UTD Ids and take modulo 20. Suppose that your id sum is 123456 whose modulo 20 gives 16. Order the tokens by edge file size on disk and choose the 16th, 17th and 18th biggest token. By this scheme, we will analyze one of the top 20 tokens.If you have selected beautychain1 or beautychain2, please ignore them and use the next token in order. These tokens have failed recently.
+My UTDID is 2021431320 whose modulo 20 gives 0,so I take 20th token "networkmcapTX",1th token"networkaragonTX" and 2th token"networkbatTX".
+
+#Question1
+
+##Preprocessing step
+Find your tokens and load their data. In each token, there may be outlier amounts which are bigger than the total amount of the token. Locate these extreme outliers, if exist, and filter them out. If there are many of these (>30), investigate how many users are included in these transactions.Update See this news as an example of why we have these outliers: (https://cryptoslate.com/batchoverflow-exploit-creates-trillions-of-ethereum-tokens/)
+
+## MCAP
+```{r}
+# Load Data
+setwd("D:/project/6313")
+table<-read.table("networkmcapTX.txt",head=FALSE)
+length(table [,1])  # dataset size
+```
+####Filter Outliter
+```{r}
+#filter out tokenAmounts > the total circulating token amount
+#tokenAmount should be less than decimals*supply(10^18*10^9)
+outlier <- 10^27
+names(table) <- c("A","B","C","D")
+newTable = table[table$D<=outlier,]
+names(newTable) <- c("fromNodeID","ttoNodeID","tunixTime","ttokenAmount")
+length(newTable [,1]) # dataset size after filterring outliers
+```
+This means that there has one data is negligible
+
+####Show MCAP Distribution
+```{r}
+#Buys
+buysTable <- as.data.frame.table(table(newTable$ttoNodeID))
+names(buysTable) <- c("nodeId","buysFreq")
+
+buysFreqTable <- as.data.frame.table(table(buysTable$buysFreq))
+names(buysFreqTable) <- c("buysNumber","count")
+plot(buysFreqTable$count~buysFreqTable$buysNumber,main="MCAP Buyers Distribution")
+
+```
+```{r}
+#Sells
+sellsTable <- as.data.frame.table(table(newTable$fromNodeID))
+names(sellsTable) <- c("nodeId","sellsFreq")
+sellsFreqTable <- as.data.frame.table(table(sellsTable$sellsFreq))
+names(sellsFreqTable) <- c("sellsNumber","count")
+plot(sellsFreqTable$count~sellsFreqTable$sellsNumber,main="MCAP Sellers Distribution")
+```
+
+####Fit Distribution
+```{r}
+library(fitdistrplus)
+fitBuy <- fitdist(buysFreqTable$count,"pois")
+fitBuy
+```
+
+```{r}
+library(fitdistrplus) 
+fitSell <- fitdist(sellsFreqTable$count,"pois")
+fitSell
+```
+
+##Aragon
+```{r}
+# Load Data
+setwd("D:/project/6313")
+table1<-read.table("networkaragonTX.txt",head=FALSE)
+length(table1 [,1])  # dataset size
+```
+#### Filter outliter
+```{r}
+#filter out tokenAmounts > the total circulating token amount
+#tokenAmount should be less than decimals*supply(10^18*10^9)
+outlier <- 10^27
+names(table1) <- c("A","B","C","D")
+newTable1 = table1[table1$D<=outlier,]
+names(newTable1) <- c("fromNodeID","ttoNodeID","tunixTime","ttokenAmount")
+length(newTable1 [,1]) # dataset size after filterring outliers
+```
+####Show Aragon ditribution
+```{r}
+#Buys
+buysTable1 <- as.data.frame.table(table(newTable1$ttoNodeID))
+names(buysTable1) <- c("nodeId","buysFreq")
+
+buysFreqTable1 <- as.data.frame.table(table(buysTable1$buysFreq))
+names(buysFreqTable1) <- c("buysNumber","count")
+plot(buysFreqTable1$count~buysFreqTable1$buysNumber,main="Aragon Buyers Distribution")
+```
+```{r}
+#Sells
+sellsTable1 <- as.data.frame.table(table(newTable1$fromNodeID))
+names(sellsTable1) <- c("nodeId","sellsFreq")
+sellsFreqTable1 <- as.data.frame.table(table(sellsTable1$sellsFreq))
+names(sellsFreqTable1) <- c("sellsNumber","count")
+plot(sellsFreqTable1$count~sellsFreqTable1$sellsNumber,main="Aragon Sellers Distribution")
+```
+#### Fit Distribution
+```{r}
+library(fitdistrplus)
+```
+```{r}
+fitBuy <- fitdist(buysFreqTable1$count,"pois")
+fitBuy
+```
+```{r}
+library(fitdistrplus) 
+fitSell <- fitdist(sellsFreqTable1$count,"pois")
+fitSell
+```
+
+##BAT
+```{r}
+# Load Data
+setwd("D:/project/6313")
+table2<-read.table("networkbatTX.txt",head=FALSE)
+length(table2 [,1])  # dataset size
+```
+#### Filter Outliter
+```{r}
+#filter out tokenAmounts > the total circulating token amount
+#tokenAmount should be less than decimals*supply(10^18*10^9)
+outlier <- 10^27
+names(table2) <- c("A","B","C","D")
+newTable2 = table[table2$D<=outlier,]
+names(newTable2) <- c("fromNodeID","ttoNodeID","tunixTime","ttokenAmount")
+length(newTable2 [,1]) # dataset size after filterring outliers
+```
+#### Show BAT Distribution
+```{r}
+#Buys
+buysTable2 <- as.data.frame.table(table(newTable2$ttoNodeID))
+names(buysTable2) <- c("nodeId","buysFreq")
+
+buysFreqTable2 <- as.data.frame.table(table(buysTable2$buysFreq))
+names(buysFreqTable2) <- c("buysNumber","count")
+plot(buysFreqTable2$count~buysFreqTable2$buysNumber,main="BAT Buyers Distribution")
+```
+```{r}
+#Sells
+sellsTable2 <- as.data.frame.table(table(newTable2$fromNodeID))
+names(sellsTable2) <- c("nodeId","sellsFreq")
+sellsFreqTable2 <- as.data.frame.table(table(sellsTable2$sellsFreq))
+names(sellsFreqTable2) <- c("sellsNumber","count")
+plot(sellsFreqTable2$count~sellsFreqTable2$sellsNumber,main="BAT Sellers Distribution")
+```
+#### Fit Distribution
+```{r}
+library(fitdistrplus)
+fitBuy <- fitdist(buysFreqTable2$count,"pois")
+fitBuy
+```
+```{r}
+library(fitdistrplus) 
+fitSell <- fitdist(sellsFreqTable2$count,"pois")
+fitSell
+```
+
+
+
+
+
+
+
+#Question2
+This question is similar to the first question. You will find the most active buyers and sellers in each of your three token network, and track them in other tokens. Develop a regression model where ¡°buys¡± of the top K buyers (by number of buys or amount of buys) are regressors, and token price is the outcome. Determine a K value to have the best regression results. This means that you will develop three regression models for three tokens, and K can be different for each model.
+
+```{r}
+#Find the most active buyers in MCAP
+data=newTable
+ActiveBuyMCAP<-sort(table(data$ttoNodeID))  #Count the frequency of buyers and sort
+which.max(ActiveBuyMCAP)
+```
+```{r}
+#Find the most active buyers in Aragon
+data=newTable1
+ActiveBuyAragon<-sort(table(data$ttoNodeID))  #Count the frequency of buyers and sort
+which.max(ActiveBuyAragon)
+```
+```{r}
+#Find the most active buyers in BAT
+data=newTable2
+ActiveBuyBAT<-sort(table(data$ttoNodeID))  #Count the frequency of buyers and sort
+which.max(ActiveBuyBAT)
+```
+```{r}
+#Find the most active Sellers in MCAP
+data=newTable
+ActiveBuyMCAP<-sort(table(data$fromNodeID))  #Count the frequency of buyers and sort
+which.max(ActiveBuyMCAP)
+```
+```{r}
+#Find the most active Sellers in Aragon
+data=newTable1
+ActiveBuyAragon<-sort(table(data$fromNodeID))  #Count the frequency of buyers and sort
+which.max(ActiveBuyAragon)
+```
+```{r}
+#Find the most active Sellers in BAT
+data=newTable2
+ActiveBuyBAT<-sort(table(data$fromNodeID))  #Count the frequency of buyers and sort
+which.max(ActiveBuyBAT)
+```
+ So,the most active buyer of MCAP is ttoNodeID=309659,the most active seller of MCAP is fromNodeID=2157432 ;
+ the most active buyer of Aragon is ttoNodeID=194319,the most active seller of Aragon is fromNodeID=194319 ;
+ the most active buyer of MCAP is ttoNodeID=351141,the most active seller of MCAP is fromNodeID=351141;
+ 
+#### Top 10 buyers and sellers of MCAP
+ 
+```{r}
+#MCAP buyers
+library(magrittr)
+library(dplyr)
+# number of MCAP buyers by user id
+buysMCAP <- newTable %>% group_by(ttoNodeID) %>% summarise(n = n()) %>% ungroup
+# show highest 10 buyers and their number of buys
+buysMCAP %>% arrange(-n) %>% head(10)
+```
+```{r}
+#MCAP sellers
+library(magrittr)
+library(dplyr)
+# number of MCAP sellers by user id
+sellsMCAP <- newTable %>% group_by(fromNodeID) %>% summarise(n = n()) %>% ungroup
+# show highest 10 sellers and their number of sells
+sellsMCAP %>% arrange(-n) %>% head(10)
+```
+ 
+#### Top 10 buyers and sellers of Aragon
+```{r}
+library(magrittr)
+library(dplyr)
+# number of Aragon buyers by user id
+buysAragon <- newTable1 %>% group_by(ttoNodeID) %>% summarise(n = n()) %>% ungroup
+# show highest 10 buyers and their number of buys
+buysAragon %>% arrange(-n) %>% head(10)
+```
+```{r}
+#Aragon sellers
+library(magrittr)
+library(dplyr)
+# number of Aragon sellers by user id
+sellsAragon <- newTable1 %>% group_by(fromNodeID) %>% summarise(n = n()) %>% ungroup
+# show highest 10 sellers and their number of sells
+sellsAragon %>% arrange(-n) %>% head(10)
+```
+
+#### Top 10 buyers and sellers of MCAP
+```{r}
+library(magrittr)
+library(dplyr)
+# number of BAT buyers by user id
+buysBAT <- newTable2 %>% group_by(ttoNodeID) %>% summarise(n = n()) %>% ungroup
+# show highest 10 buyers and their number of buys
+buysBAT %>% arrange(-n) %>% head(10)
+```
+```{r}
+#BAT sellers
+library(magrittr)
+library(dplyr)
+# number of BAT sellers by user id
+sellsBAT <- newTable2 %>% group_by(fromNodeID) %>% summarise(n = n()) %>% ungroup
+# show highest 10 sellers and their number of sells
+sellsBAT %>% arrange(-n) %>% head(10)
+```
+
+#### the most transactions between a user (seller->buyer) pair.
+```{r}
+#MCAP
+library(magrittr)
+library(dplyr)
+# number of transaction pairs
+transMCAP <- newTable %>% group_by(fromNodeID, ttoNodeID) %>% summarise(n = n()) %>% ungroup
+# show highest 10 pairs of users and their number of transactions
+transMCAP %>% arrange(-n) %>% head(10)
+```
+```{r}
+#Aragon
+library(magrittr)
+library(dplyr)
+# number of transaction pairs
+transAragon <- newTable1 %>% group_by(fromNodeID, ttoNodeID) %>% summarise(n = n()) %>% ungroup
+# show highest 10 pairs of users and their number of transactions
+transAragon %>% arrange(-n) %>% head(10)
+```
+```{r}
+#BAT
+library(magrittr)
+library(dplyr)
+# number of transaction pairs
+transBAT <- newTable2 %>% group_by(fromNodeID, ttoNodeID) %>% summarise(n = n()) %>% ungroup
+# show highest 10 pairs of users and their number of transactions
+transBAT %>% arrange(-n) %>% head(10)
+```
+
+ Develop a regression model where ¡°buys¡± of the top K buyers (by number of buys or amount of buys) are regressors, and token price is the outcome. Determine a K value to have the best regression results. This means that you will develop three regression models for three tokens, and K can be different for each model.
+
+#### Merge price data and ID data
+```{r}
+#MCAP
+library(readr)
+setwd("D:/project/6313")
+PMCAP<- read_delim('mcap', delim = "\t", col_names = T)
+length(PMCAP$Date)  # dataset size
+```
+```{r}
+newTable$tunixTime <-as.Date(as.POSIXct(as.numeric(newTable$tunixTime), origin="1970-01-01"))
+library(readr)
+setwd("D:/project/6313")
+price_table<- read_delim('mcap', delim = "\t", col_names = T)
+colnames(price_table)<-c("Date", "Open", "High", "Low", "Close", "Volume", "Market_Cap")
+price_date<-c(price_table$Date)
+column_to_keep<-c("Date", "Open", "Close")
+price_date_table<-price_table[column_to_keep]
+price_date_table$Date<-gsub("/","-",price_date_table$Date)
+price_date_table$tunixTime<-format(as.Date(price_date_table$Date, format="%m-%d-%Y"), "%Y-%m-%d")
+price_table_final<-as.data.frame(price_date_table)
+final_table <-merge(price_table_final, newTable,by = "tunixTime", all=F)
+```
+```{r}
+#MCAP
+# Create the Regression of MCAP.
+x <- newTable$ttoNodeID
+y <- newTable$ttokenAmount
+relation <- lm(y~x)
+print(relation)
+# Plot the chart.
+plot(y,x,col = "blue",main = "Regression of MCAP",
+abline(lm(x~y)),cex = 1.3,pch = 16,xlab = "buyers",ylab = "Price")
+```
+
+
+
+

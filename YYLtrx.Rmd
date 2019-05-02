@@ -1,0 +1,217 @@
+---
+title: "TRX"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Question 1:
+First of all, we need to load the transaction data of tronix into a dataframe
+```{r}
+library(readr)
+setwd("/Users/oncopeltus/Documents/CS6313/project/")
+# Read the TRX token graph
+trx <- read_delim('networktronixTX.txt', delim = " ", col_names = F)
+
+```
+
+Give the columns their names
+```{r}
+#Give names to each column
+names(trx) <- c('fromID', 'toID', 'unixTime', 'tokenAmount')
+head(trx)
+```
+
+There are transactions that the amount of tokens is larger than the total circulating supply of tronix, therefore these transactions actually did not take place, we need to remove them.
+```{r}
+#filter out the false transactions that is larger than the total circulating supply
+library(dplyr)
+decimals <- 10^6
+supply <- 66682072191
+
+trxFiltered <- trx %>% filter(tokenAmount < decimals * supply)
+
+trx %>% filter(tokenAmount >= supply * decimals) %>% nrow()
+
+```
+
+There are >30 faulty transactions, we will need to investigate little further.
+
+```{r}
+outlier <- trx %>% filter(tokenAmount >= decimals * supply)
+#outlier
+fraudbuyer_distribution <- outlier %>% group_by(toID) %>% summarise(n = n()) %>% ungroup
+fraudseller_distribution <- outlier %>% group_by(fromID) %>% summarise(n = n()) %>% ungroup
+fraudtrans_distribution <- outlier %>% group_by(fromID,toID) %>% summarise(n = n()) %>% ungroup
+#fraudbuyer_distribution %>% arrange(desc(n)) %>% head(10)
+#fraudseller_distribution %>% arrange(desc(n)) %>% head(10)
+fraudtrans_distribution %>% arrange(desc(n)) %>% head(10)
+```
+So here we have identified the sellers and buyers that are most actively making faulty transactions, especially the IDs 9396168 9396169 contributed 12 of the faulty transactions.
+
+Next, we look for the top buyers.
+```{r}
+ # number of buys by user id
+buys_distribution <- trxFiltered %>% group_by(toID) %>% summarise(n = n()) %>% ungroup
+# show highest 10 buyers and their number of buys
+buys_distribution %>% arrange(-n) %>% head(10)
+```
+
+Also we look at top sellers
+```{r}
+ # number of sells by user id
+sells_distribution <- trxFiltered %>% group_by(fromID) %>% summarise(n = n()) %>% ungroup
+# show highest 10 sells and their number of sells
+sells_distribution %>% arrange(-n) %>% head(10)
+```
+
+The IDs 5 and 1742290 are in the top 3 of both most active buyers and sellers.
+
+Next we want to see the most transactions between a user (seller->buyer) pair.
+```{r}
+# number of transaction pairs
+trans_distribution <- trxFiltered %>% group_by(fromID, toID) %>% summarise(n = n()) %>% ungroup
+# show highest 10 pairs of users and their number of transactions
+
+trans_distribution %>% arrange(-n) %>% head(10)
+#trxFiltered %>% filter(toID == 19 & fromID == 5) %>% nrow()
+#head(trxFiltered)
+```
+
+We want to visualize these numbers in histogram.
+```{r}
+library(ggplot2)
+trans_distribution$user_pair <- paste(trans_distribution$fromID, trans_distribution$toID, sep = " -> ")
+
+trans_distribution$logn <- log10(trans_distribution$n)
+hist(trans_distribution$n, freq = FALSE, main = "Histogram of transactions", xlab = "Number of transactions")
+```
+
+
+The distribution is extremely positive skewed.Therefore to better visualize it, we transformed the number of transactions by log10.
+
+```{r}
+hist(trans_distribution$logn, freq = FALSE, main = "Histogram of transactions", xlab = "log10 of transaction numbers")
+
+```
+
+Next, we try to find the best model to fit and describe the distribution of transactions between user pairs. We first tried to fit all the distribution models we have learned from class.
+```{r}
+#install.packages('fitdistrplus')
+library(fitdistrplus)
+fit_exp_trans <- fitdist(trans_distribution$n, 'exp')
+fit_gamma_trans <- fitdist(trans_distribution$n, 'gamma',
+lower = c(0, 0), start = list(scale = 1, shape = 1))
+fit_geometric_trans <- fitdist(trans_distribution$n, 'geom')
+fit_log_trans <- fitdist(trans_distribution$n, 'logis')
+fit_lnorm_trans <- fitdist(trans_distribution$n, 'lnorm')
+fit_nbinom_trans <- fitdist(trans_distribution$n, 'nbinom')
+fit_norm_trans <- fitdist(trans_distribution$n, 'norm')
+fit_pois_trans <- fitdist(trans_distribution$n, 'pois')
+fit_unif_trans <- fitdist(trans_distribution$n, 'unif')
+fit_weibull_trans <- fitdist(trans_distribution$n, 'weibull')
+## find the best fit distribution
+```
+
+Next we look into how well the fit.
+```{r}
+gofstat(list(fit_weibull_trans, fit_gamma_trans, fit_lnorm_trans,
+fit_exp_trans, fit_log_trans, fit_geometric_trans, fit_nbinom_trans, fit_norm_trans, fit_pois_trans))
+```
+
+The log normal distribution has the lowest AIC and BIC, indicating that it is the best model to fit the distribution of the number of transactions by buyer-seller pairs.
+So now we show the statistics:
+```{r,echo = FALSE}
+print(fit_lnorm_trans)
+```
+Conclusion:
+The distribution of transactions between buyer/seller pairs are best fitted with log normal distribution, with mean log 0.098 and standard deviation of log of 0.35.
+
+
+Question 2:
+First we convert the linux time into dates.
+```{r}
+library(anytime)
+## convert the timestamp to a date
+trxFiltered$date <- anydate(trxFiltered$unixTime)
+summary(trxFiltered$Date)
+```
+
+Then we read the price data, into a dataframe.
+```{r}
+## Read in and merge the price and trade data
+## get the prices
+trxprices <- read_delim('tron.csv', delim = "\t", col_names = T)
+names(trxprices) <- make.names(names(trxprices))
+trxprices$date <- as.Date(trxprices$Date,"%Y/%m/%d")
+```
+
+We then merge the transactions and prices into one data frame by dates.
+```{r}
+trx_combine <- merge(trxFiltered, trxprices, by = "date")
+```
+
+There are several prices in the data frame. We only need one to be the outcome of our regression model. First we look at if the opening and closing prices are correlated with each other. In other words, how good the token price at the beginning of a day is correlated to that by the end of the same day.
+```{r}
+cor_open_close <- cor(trxprices$Open, trxprices$Close)
+cat('The correlation between open and closing price is', cor_open_close)
+```
+
+The correlation is close to 1, indicating strong correlation between open and closing prices. Here we choose closing prices, since we are going to predict the outcome from the volumns of transactions, it makes more sense to see if we can predict the price at the end of day based upon the amount of token transactions taken place during that day.
+
+To create the model, first we need to find the most active buyers.
+```{r}
+ # number of buys by user id
+buys_distribution <- trx_combine %>% group_by(toID) %>% summarise(amount = sum(tokenAmount)) %>% ungroup
+# Sort the buyers by the token amounts from highest to lowest
+topbuys <- buys_distribution %>% arrange(desc(amount))
+```
+
+
+```{r}
+buys <- aggregate(trx_combine$tokenAmount, by = list(date = trx_combine$date, buyer = trx_combine$toID), FUN = sum)
+#buys_distribution5 <- buys %>% group_by(date) %>% summarise(buysfrom5 = x) %>% ungroup
+```
+
+Here we define a function that take a number K, and calculate the adjusted R square of a multiple linear regression model, where the buying amount of tokens of the top K buyers are the K regressors, and the closing price is the output.
+
+```{r}
+myfit <- function(k){
+topbuyers <- topbuys$toID[1:k]
+highestbuyer <- topbuys$toID[1]
+df <- buys %>% filter(buyer == highestbuyer)
+df$buyer <- NULL
+names(df)[2]<-paste("buyfrom", as.character(highestbuyer), sep = "")
+for(id in topbuyers[2:k]){
+  newdf <- buys %>% filter(buyer == id)
+  newdf$buyer <- NULL
+  names(newdf)[2]<- paste("buyfrom",as.character(id), sep="")
+  df<-merge(df, newdf, by = "date", all = TRUE)
+  
+}
+prices <- subset(trx_combine,select = c(date, Close))
+df <- merge(df, prices, by = "date", all = TRUE)
+df[is.na(df)] <- 0
+
+regressors <- paste(names(df)[2:k+1], sep = "", collapse = " + ")
+Formula <- formula(paste("Close ~ ", regressors))
+fit <- lm(Formula, data = df)
+return(fit)
+}
+result <- summary(myfit(200))
+cat("The adjusted R-square is ", result$adj.r.squared)
+f<- result$fstatistic
+p <- pf(f[1],f[2],f[3],lower.tail=F)
+attributes(p) <- NULL
+cat(', and the p-value is', p)
+
+```
+Here we have an adjusted R-square at 0.95, indicating using the top 200 buyers to predict the closing price is a very good model.
+
+Conclusion:
+For the Tronix token, we can predict the token price based upon the activities of just less than 0.03% buyers(200 out of 684746).
+
